@@ -1,6 +1,5 @@
 from code.train import *
 
-
 if __name__ == '__main__':
 
     data_dir = "data/img_align_celeba/*.*"

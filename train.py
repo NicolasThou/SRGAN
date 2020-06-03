@@ -318,9 +318,9 @@ if __name__ == '__main__':
     # X_train training set size 162 080
     # per epoch, all the training set has to be treated
     # number_of_batch * batch_size = size_training_set
-    number_of_epochs = 2  # 30 000
-    number_of_batch = 2  # 5065, 2532, 1266 according to the batch size
-    batch_size = 2  # 32, 64, 128
+    number_of_epochs = 1000  # 30 000
+    number_of_batch = 5065  # 5065, 2532, 1266 according to the batch size
+    batch_size = 32  # 32, 64, 128
     mode = 'train'
 
     # Shape of low-resolution and high-resolution images
@@ -345,7 +345,7 @@ if __name__ == '__main__':
         discriminator = build_discriminator()
         # pixel wise MSE Loss for the discriminator, LSGAN against Vanishing gradient
         # 1/2 * ((D(x) - 1)^2) + 1/2 * (((D(G(z))) - 0) ^ 2)
-        discriminator.compile(loss='mse', optimizer=common_optimizer)
+        discriminator.compile(loss='mse', optimizer=common_optimizer,  metrics=['accuracy'])
 
         # Build the generator network
         generator = build_generator()
@@ -380,7 +380,7 @@ if __name__ == '__main__':
 
         for epoch in range(number_of_epochs):
             print("Epoch:{}".format(epoch))
-            g_loss_epoch, d_loss_epoch = [], []
+            g_loss_epoch, d_loss_epoch, accuracy_discriminator = [], [], []
             for batch_index in range(number_of_batch):
                 print("Batch index:{}".format(batch_index))
 
@@ -414,7 +414,8 @@ if __name__ == '__main__':
 
                 # Calculate total discriminator loss (LSGAN Discriminator)
                 d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
-                d_loss_epoch.append(d_loss)
+                d_loss_epoch.append(d_loss[0])
+                accuracy_discriminator.append(d_loss[1])
                 print("d_loss:", d_loss)
 
                 """ ================================================================================="""
@@ -468,8 +469,14 @@ if __name__ == '__main__':
 
             # Write the losses to Tensorboard
 
-            writter.add_scalar('train_adversarial_loss', np.mean(g_loss_epoch), epoch)
-            writter.add_scalar('train_discriminator_loss', np.mean(d_loss_epoch), epoch)
+            writter.add_scalar('Loss/train_adversarial_loss', np.mean(g_loss_epoch), epoch)
+            writter.add_scalar('Loss/train_discriminator_loss', np.mean(d_loss_epoch), epoch)
+            writter.add_scalar('Accuracy/accuracy_discriminator', np.mean(accuracy_discriminator), epoch)
+
+            if epoch % 100 == 0:
+                # Save models
+                generator.save_weights("weights/generator_{}.h5" .format(epoch))
+                discriminator.save_weights("weights/discriminator_{}.h5" .format(epoch))
 
         # Save models
         generator.save_weights("weights/generator.h5")
