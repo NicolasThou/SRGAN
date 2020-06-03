@@ -13,10 +13,10 @@ run the code
 
 1) The ``data`` directory is for the celebA dataset
 2) The ``results`` directory is for the image generated
-    2) ``training`` along the training in order
+    a) ``training`` along the training in order
 to visualize how the generator improve
-    2) ``prediction`` prediction on a batch of random images
-    2) ``test`` test on different images from the test set
+    b) ``prediction`` prediction on a batch of random images
+    c) ``test`` test on different images from the test set
 3) The ``weights`` directory is for saving and loading the weights for the test and the prediction mode
 
 ### Download the dataset celebA manually
