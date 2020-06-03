@@ -39,9 +39,15 @@ Then you have to unzip the file, and remove the `.zip`
 
 ### Train the model
 
+To train the model, just run the file `train.py`
+
 ### Test the model
 
+To train the model, just run the file `test.py`
+
 ### Predict with the model
+
+To make a random prediction with the model, just run the file `prediction.py`
 
 ### Display the loss during training
 Go in the terminal in the working directory 
