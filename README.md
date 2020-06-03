@@ -5,12 +5,6 @@
 You have to create the main architecture of the working directory in order to
 run the code
 
-``mkdir data results weights``
-
-``cd results``
-
-``mkdir training test prediction``
-
 
 1) The ``data`` directory is for the celebA dataset. 
     a) ``img_align_celeba`` folder that contains every images
