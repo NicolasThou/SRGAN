@@ -47,7 +47,7 @@ To train the model, just run the file `test.py`
 
 ### Predict with the model
 
-To make a random prediction with the model, just run the file `prediction.py`
+To make a random prediction with the model, just run the file `predict.py`
 
 ### Display the loss during training
 Go in the terminal in the working directory 
