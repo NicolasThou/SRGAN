@@ -11,14 +11,17 @@ run the code
 
 ``mkdir training test prediction``
 
-1) The ``data`` directory is for the celebA dataset
+1) The ``datasets`` directory is for the celebA dataset
+    a) ``img_align_celeba`` directory that contains image
 2) The ``results`` directory is for the image generated
-    2) ``training`` along the training in order
+    a) ``training`` along the training in order
 to visualize how the generator improve
-    2) ``prediction`` prediction on a batch of random images
-    2) ``test`` test on different images from the test set
+    b) ``prediction`` prediction on a batch of random images
+    c) ``test`` test on different images from the test set
+        i)``Low_res`` need this directory to run run the test file
 3) The ``weights`` directory is for saving and loading the weights for the test and the prediction mode
-
+4)  The ``test2`` directory is for some test with car, group of people and text
+    a) ``results`` to get the output 
 ### Download the dataset celebA manually
 
 You can download the dataset manually via this [link](https://drive.google.com/open?id=0B7EVK8r0v71pZjFTYXZWM3FlRnM)
