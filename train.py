@@ -36,8 +36,11 @@ def residual_block(x):
     res = Conv2D(filters=filters[1], kernel_size=kernel_size, strides=strides, padding=padding)(res)
     res = BatchNormalization(momentum=momentum)(res)
 
-    # Add res and x
+    # Add res and x -> skip connection/short cut
     res = Add()([res, x])
+
+    # No add of a Relu after the addition
+
     return res
 
 
@@ -66,20 +69,34 @@ def build_generator():
     gen2 = BatchNormalization(momentum=momentum)(gen2)
 
     # Take the sum of the output from the pre-residual block(gen1) and the post-residual block(gen2)
+    # We finally have the features of the input low resolution images
     gen3 = Add()([gen2, gen1])
+    # shape=(None, 64, 64, 64), dtype=float32
 
-    # Add an upsampling block
+    # [gen4, gen5, gen6] can be understood as a transposed convolution layer
+
+    # Here we add layer so as to upscale the low resolution image features
+    # the Conv2D is added to fill the upscale image with details
+    # Add an upsampling block (double the dimension x2)
+
+    # shape=(None, 64, 64, 64), dtype=float32
     gen4 = UpSampling2D(size=2)(gen3)
-    gen4 = Conv2D(filters=256, kernel_size=3, strides=1, padding='same')(gen4)
+    # output shape=(None, 128, 128, 64), dtype=float32
+    gen4 = Conv2D(filters=256, kernel_size=3, strides=1, padding='same')(gen4)  # weights learn to fill details here
+    # output shape=(None, 128, 128, 256), dtype=float32)
     gen4 = Activation('relu')(gen4)
 
-    # Add another upsampling block
+    # Add another upsampling block (double the dimension x2), upscale the features map again
     gen5 = UpSampling2D(size=2)(gen4)
-    gen5 = Conv2D(filters=256, kernel_size=3, strides=1, padding='same')(gen5)
+    # output shape=(None, 256, 256, 256), dtype=float32
+    gen5 = Conv2D(filters=256, kernel_size=3, strides=1, padding='same')(gen5)  # weights learn to fill details here
+    # output shape=(None, 256, 256, 256), dtype=float32)
     gen5 = Activation('relu')(gen5)
 
-    # Output convolution layer
-    gen6 = Conv2D(filters=3, kernel_size=9, strides=1, padding='same')(gen5)
+    # Finally here we interpret/process the upscaled (x4) features map
+    # we output a High Resolution Image with 3 channels (filters=3)
+    gen6 = Conv2D(filters=3, kernel_size=9, strides=1, padding='same')(gen5)  # weight learn to reshape the features map
+    # output shape=(None, 256, 256, 3), dtype=float32)
     output = Activation('tanh')(gen6)
 
     # Keras model
@@ -90,7 +107,6 @@ def build_generator():
 def build_discriminator():
     """
     Create a discriminator network using the hyperparameter values defined below
-    :return:
     """
     leakyrelu_alpha = 0.2
     momentum = 0.8
@@ -160,12 +176,12 @@ def build_vgg():
 
     # Load a pre-trained VGG19 model trained on 'Imagenet' dataset
     vgg = VGG19(weights="imagenet")
-    vgg.outputs = [vgg.layers[9].output]
+    vgg.outputs = [vgg.layers[9].output]  # block3_conv3/Relu:0
 
     input_layer = Input(shape=input_shape)
 
     # Extract features
-    features = vgg(input_layer)
+    features = vgg(input_layer)  # shape=(None, 64, 64, 256), dtype=float32
 
     # Create a Keras model
     model = Model(inputs=[input_layer], outputs=[features])
@@ -261,13 +277,6 @@ def sample_images_set(set, batch_size, high_resolution_shape, low_resolution_sha
     """
     Sample the batch according to the set (training or test)
     Convert the batch in low and high resolution images
-
-    :param set: training set or test set
-    :param batch_size: size of the batch
-    :param high_resolution_shape: tuple size 2
-    :param low_resolution_shape: tuple size 2
-
-    :return: 2 ndarray of high and low resolution
     """
 
     # Choose a batch of images randomly
@@ -308,19 +317,23 @@ def save_images(low_resolution_image, original_image, generated_image, path):
     ax.set_title("Generated")
 
     plt.savefig(path)
+    plt.close(fig)
 
-data_dir = "data/img_align_celeba/*.*"
+# load the data
+
+data_dir = "datasets/img_align_celeba/*.*"
+
 # split the dataset between training and test
 X_train, X_test = split_train_test(data_dir, 0.8)
 
 if __name__ == '__main__':
 
-    # X_train training set size 162 080
+    # X_train training set size 147 371
     # per epoch, all the training set has to be treated
     # number_of_batch * batch_size = size_training_set
-    number_of_epochs = 1000  # 30 000
-    number_of_batch = 5065  # 5065, 2532, 1266 according to the batch size
-    batch_size = 32  # 32, 64, 128
+    number_of_epochs = 4  # 20 000
+    number_of_batch = 1  # 20
+    batch_size = 2  # 32, 64, 128 ResourceExhaustedError:  OOM when allocating tensor with shape[32,64,256,256] so 16
     mode = 'train'
 
     # Shape of low-resolution and high-resolution images
@@ -343,8 +356,9 @@ if __name__ == '__main__':
 
         # Build and compile the discriminator network. The discriminator will be train.
         discriminator = build_discriminator()
-        # pixel wise MSE Loss for the discriminator, LSGAN against Vanishing gradient
+        # pixel wise MSE Loss for the discriminator (LSGAN)
         # 1/2 * ((D(x) - 1)^2) + 1/2 * (((D(G(z))) - 0) ^ 2)
+        # The discriminator will be really stronger thanks to this loss function
         discriminator.compile(loss='mse', optimizer=common_optimizer,  metrics=['accuracy'])
 
         # Build the generator network
@@ -428,9 +442,9 @@ if __name__ == '__main__':
                                                                                         high_resolution_shape=(256, 256),
                                                                                         )
 
-                # Normalize images
-                high_resolution_images = high_resolution_images / 127.5 - 1.
-                low_resolution_images = low_resolution_images / 127.5 - 1.
+                # Normalize image between -1 and 1 as the tanh function in the generator output value between this range
+                high_resolution_images = 2 * (high_resolution_images / 127.5) - 1.
+                low_resolution_images = 2 * (low_resolution_images / 127.5) - 1.
 
                 # Extract feature maps for real high-resolution images for the target
                 image_features = vgg.predict(high_resolution_images)
@@ -453,8 +467,8 @@ if __name__ == '__main__':
 
 
                 # Sample and save images after every 100 batches
-                if batch_index % 100 == 0:
-                    high_resolution_images, low_resolution_images = sample_images(data_dir=data_dir, batch_size=batch_size,
+                if epoch % 100 == 0:
+                    high_resolution_images, low_resolution_images = sample_images(data_dir=data_dir, batch_size=1,
                                                                                   low_resolution_shape=(64, 64),
                                                                                   high_resolution_shape=(256, 256))
                     # Normalize images
@@ -473,14 +487,24 @@ if __name__ == '__main__':
             writter.add_scalar('Loss/train_discriminator_loss', np.mean(d_loss_epoch), epoch)
             writter.add_scalar('Accuracy/accuracy_discriminator', np.mean(accuracy_discriminator), epoch)
 
-            if epoch % 100 == 0:
+            # each 1000 epoch save the weight, means 30 model
+
+            if epoch % 1000 == 0:
                 # Save models
-                generator.save_weights("weights/generator_{}.h5" .format(epoch))
-                discriminator.save_weights("weights/discriminator_{}.h5" .format(epoch))
+                weights_gen = generator.get_weights()
+                weights_disc = discriminator.get_weights()
+                np.save("weights/generator_{}" .format(epoch), weights_gen)
+                np.save("weights/discriminator_{}" .format(epoch), weights_disc)
+
 
         # Save models
-        generator.save_weights("weights/generator.h5")
-        discriminator.save_weights("weights/discriminator.h5")
+        weights_gen = generator.get_weights()
+        weights_disc = discriminator.get_weights()
+        np.save("weights/generator", weights_gen)
+        np.save("weights/discriminator", weights_disc)
+
+
+
 
 
 

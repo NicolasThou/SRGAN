@@ -5,9 +5,6 @@ from tensorflow.python.ops.math_ops import reduce_mean as mean
 
 
 def convert_high_low_resolution_test(images_batch, high_shape, low_shape):
-    """
-    TODO Comment
-    """
 
     low_res_images = []
     high_res_images = []
@@ -43,50 +40,48 @@ def convert_high_low_resolution_test(images_batch, high_shape, low_shape):
     return high_res_images, low_res_images, neirest, bicubic, bilinear
 
 
-def save_images_test(low_resolution_image, original_image, generated_image, neirest, bicubic, bilinear, path):
+def save_images_test(original_image, generated_image, neirest, bicubic, bilinear, path):
     """
     Save low-resolution, high-resolution(original) and
     generated high-resolution images in a single image
     """
+    # initialize a figure
     fig = plt.figure()
-    ax = fig.add_subplot(2, 3, 1)
-    destRGB = cv2.cvtColor(low_resolution_image, cv2.COLOR_BGR2RGB)
-    ax.imshow(destRGB)  # need RGB
-    ax.axis("off")
-    ax.set_title("Low-resolution")
 
-    ax = fig.add_subplot(2, 3, 2)
+    # add each image
+
+    ax = fig.add_subplot(2, 3, 1)
     destRGB = cv2.cvtColor(neirest, cv2.COLOR_BGR2RGB)
     ax.imshow(destRGB)  # need RGB
     ax.axis("off")
-    ax.set_title("Neirest Neighbour")
+    ax.set_title("Nearest Neighbour")
 
-    ax = fig.add_subplot(2, 3, 3)
+    ax = fig.add_subplot(2, 3, 2)
     destRGB = cv2.cvtColor(bicubic, cv2.COLOR_BGR2RGB)
     ax.imshow(destRGB)  # need RGB
     ax.axis("off")
     ax.set_title("Bicubic")
 
-    ax = fig.add_subplot(2, 3, 4)
+    ax = fig.add_subplot(2, 3, 3)
     destRGB = cv2.cvtColor(bilinear, cv2.COLOR_BGR2RGB)
     ax.imshow(destRGB)  # need RGB
     ax.axis("off")
     ax.set_title("Bilinear Interpolation")
 
-    ax = fig.add_subplot(2, 3, 5)
+    ax = fig.add_subplot(2, 3, 4)
     destRGB3 = cv2.cvtColor(generated_image, cv2.COLOR_BGR2RGB)
     ax.imshow(destRGB3)  # need RGB
     ax.axis("off")
     ax.set_title("Generated")
 
-    ax = fig.add_subplot(2, 3, 6)
+    ax = fig.add_subplot(2, 3, 5)
     destRGB2 = cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB)
     ax.imshow(destRGB2)  # need RGB
     ax.axis("off")
     ax.set_title("Original")
 
     plt.show()
-    plt.savefig(path)
+    fig.savefig(path)
     plt.close(fig)
 
 
@@ -118,10 +113,8 @@ def sample_images_set_test(set, batch_size, high_resolution_shape, low_resolutio
 
 if __name__ == '__main__':
 
-    data_dir = "datasets/img_align_celeba/*.*"
-    # X_test set size 40520
     mode = 'test'
-    batch_size = 3
+    batch_size = 1
 
     # Shape of low-resolution and high-resolution images
     low_resolution_shape = (64, 64, 3)
@@ -133,76 +126,96 @@ if __name__ == '__main__':
         generator = build_generator()
 
         # Load models
-        weight_gen = np.load("weights/generator_1.npy", allow_pickle=True)
+        weight_gen = np.load("weights/generator_6000.npy", allow_pickle=True)
         generator.set_weights(weight_gen)
 
 
         """
-        ================================== 
+        ================================== 100 images are tested ===========================
         """
 
-        # Get random images in the test set
-        high_resolution_images, low_resolution_images, neirest, bicubic, bilinear = sample_images_set_test(X_test,
-                                                                        batch_size=batch_size,
-                                                                        low_resolution_shape=(64, 64),
-                                                                        high_resolution_shape=(256, 256))
+        gen_ssim, n_ssim, bicu_ssim, bilin_ssim = [], [], [], []
+        gen_psnr, n_psnr, bicu_psnr, bilin_psnr = [], [], [], []
 
-        # Normalize images
-        high_resolution_images = high_resolution_images / 127.5 - 1.
-        low_resolution_images = low_resolution_images / 127.5 - 1.
-        neirest = neirest / 127.5 - 1.
-        bicubic = bicubic / 127.5 - 1.
-        bilinear = bilinear / 127.5 - 1.
+        for i in range(10):
 
+            # Get random images in the test set
+            high_resolution_images, low_resolution_images, neirest, bicubic, bilinear = sample_images_set_test(X_test,
+                                                                            batch_size=batch_size,
+                                                                            low_resolution_shape=(64, 64),
+                                                                            high_resolution_shape=(256, 256))
 
-        # Generate high-resolution images from low-resolution images from SRGAN, bicubic interpolation, neirest neighbor
-        # bilinear interpolation
-
-        generated_images = generator.predict_on_batch(low_resolution_images)  # prediction
-
-        """
-        ===================================== Compute the 2 metrics PSNR and SSIM ===============================
-        """
-
-        # convert to tensor
-        high = tf.image.convert_image_dtype(high_resolution_images, tf.float32)
-        gen = tf.image.convert_image_dtype(generated_images, tf.float32)
-        nei = tf.image.convert_image_dtype(neirest, tf.float32)
-        bic = tf.image.convert_image_dtype(bicubic, tf.float32)
-        bil = tf.image.convert_image_dtype(bilinear, tf.float32)
-
-        # compute the metric for the generator
-        first_metric = ssim(high, gen, max_val=1.0)
-        # The last three dimensions of input are expected to be [height, width, depth]
-        second_metric = psnr(high, gen, max_val=1.0)
-        print('first metric {}' .format(mean(first_metric)))
-        print('second metric {}'.format(mean(second_metric)))
-
-        # compute the metric for the generator
-        first_metric = ssim(high, nei, max_val=1.0)
-        # The last three dimensions of input are expected to be [height, width, depth]
-        second_metric = psnr(high, nei, max_val=1.0)
-        print('first metric {}'.format(mean(first_metric)))
-        print('second metric {}'.format(mean(second_metric)))
-
-        # compute the metric for the generator
-        first_metric = ssim(high, bic, max_val=1.0)
-        # The last three dimensions of input are expected to be [height, width, depth]
-        second_metric = psnr(high, bic, max_val=1.0)
-        print('first metric {}'.format(mean(first_metric)))
-        print('second metric {}'.format(mean(second_metric)))
-
-        # compute the metric for the generator
-        first_metric = ssim(high, bil, max_val=1.0)
-        # The last three dimensions of input are expected to be [height, width, depth]
-        second_metric = psnr(high, bil, max_val=1.0)
-        print('first metric {}'.format(mean(first_metric)))
-        print('second metric {}'.format(mean(second_metric)))
+            # Normalize images
+            high_resolution_images = high_resolution_images / 127.5 - 1.
+            low_resolution_images = low_resolution_images / 127.5 - 1.
+            neirest = neirest / 127.5 - 1.
+            bicubic = bicubic / 127.5 - 1.
+            bilinear = bilinear / 127.5 - 1.
 
 
-        # Save images
-        for index, img in enumerate(generated_images):
+            # Generate high-resolution images from low-resolution images from SRGAN, bicubic interpolation, neirest neighbor
+            # bilinear interpolation
 
-            save_images_test(low_resolution_images[index], high_resolution_images[index], img, neirest[index],
-                             bicubic[index], bilinear[index],
-                        path="results/test/gen_{}.png".format(index))
+            generated_images = generator.predict_on_batch(low_resolution_images)  # prediction
+
+            """
+            ============= Compute the average of the 2 metrics PSNR and SSIM over a batch of 10 images ===============
+            """
+
+            # convert to tensor
+            high = tf.image.convert_image_dtype(high_resolution_images, tf.float32)
+            gen = tf.image.convert_image_dtype(generated_images, tf.float32)
+            nei = tf.image.convert_image_dtype(neirest, tf.float32)
+            bic = tf.image.convert_image_dtype(bicubic, tf.float32)
+            bil = tf.image.convert_image_dtype(bilinear, tf.float32)
+
+            # compute the metric for the generator
+            first_metric = ssim(high, gen, max_val=1.0)
+            gen_ssim.append(first_metric)
+            # The last three dimensions of input are expected to be [height, width, depth]
+            second_metric = psnr(high, gen, max_val=1.0)
+            gen_psnr.append(second_metric)
+            print('first metric {}' .format(mean(first_metric)))
+            print('second metric {}'.format(mean(second_metric)))
+
+            # compute the metric for the nearest neighbour
+            first_metric = ssim(high, nei, max_val=1.0)
+            n_ssim.append(first_metric)
+            # The last three dimensions of input are expected to be [height, width, depth]
+            second_metric = psnr(high, nei, max_val=1.0)
+            n_psnr.append(second_metric)
+            print('first metric {}'.format(mean(first_metric)))
+            print('second metric {}'.format(mean(second_metric)))
+
+            # compute the metric for the bicubic
+            first_metric = ssim(high, bic, max_val=1.0)
+            bicu_ssim.append(first_metric)
+            # The last three dimensions of input are expected to be [height, width, depth]
+            second_metric = psnr(high, bic, max_val=1.0)
+            bicu_psnr.append(second_metric)
+            print('first metric {}'.format(mean(first_metric)))
+            print('second metric {}'.format(mean(second_metric)))
+
+            # compute the metric for the bilinear interpolation
+            first_metric = ssim(high, bil, max_val=1.0)
+            bilin_ssim.append(first_metric)
+            # The last three dimensions of input are expected to be [height, width, depth]
+            second_metric = psnr(high, bil, max_val=1.0)
+            bilin_psnr.append(second_metric)
+            print('first metric {}'.format(mean(first_metric)))
+            print('second metric {}'.format(mean(second_metric)))
+
+            # Save images
+            for index, img in enumerate(generated_images):
+                save_images_test(high_resolution_images[index], img, neirest[index],
+                                 bicubic[index], bilinear[index], path="results/test/gen_{}_{}".format(i, index))
+
+
+        print("gen_ssim average : ", np.mean(gen_ssim))
+        print("gen_psnr average : ", np.mean(gen_psnr))
+        print("n_ssim average : ", np.mean(n_ssim))
+        print("n_psnr average : ", np.mean(n_psnr))
+        print("bicu_ssim average : ", np.mean(bicu_ssim))
+        print("bicu_psnr average : ", np.mean(bicu_psnr))
+        print("bilin_ssim average : ", np.mean(bilin_ssim))
+        print("bilin_psnr average : ", np.mean(bilin_psnr))
