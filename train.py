@@ -331,9 +331,9 @@ if __name__ == '__main__':
     # X_train training set size 147 371
     # per epoch, all the training set has to be treated
     # number_of_batch * batch_size = size_training_set
-    number_of_epochs = 4  # 20 000
+    number_of_epochs = 6500  # 20 000
     number_of_batch = 1  # 20
-    batch_size = 2  # 32, 64, 128 ResourceExhaustedError:  OOM when allocating tensor with shape[32,64,256,256] so 16
+    batch_size = 16  # 32, 64, 128 ResourceExhaustedError:  OOM when allocating tensor with shape[32,64,256,256] so 16
     mode = 'train'
 
     # Shape of low-resolution and high-resolution images
@@ -443,8 +443,8 @@ if __name__ == '__main__':
                                                                                         )
 
                 # Normalize image between -1 and 1 as the tanh function in the generator output value between this range
-                high_resolution_images = 2 * (high_resolution_images / 127.5) - 1.
-                low_resolution_images = 2 * (low_resolution_images / 127.5) - 1.
+                high_resolution_images = high_resolution_images / 127.5 - 1.
+                low_resolution_images = low_resolution_images / 127.5 - 1.
 
                 # Extract feature maps for real high-resolution images for the target
                 image_features = vgg.predict(high_resolution_images)
